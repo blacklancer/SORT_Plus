@@ -84,6 +84,10 @@ class KalmanBoxTracker(object):
         KalmanBoxTracker.count += 1
 
         self.history = []
+        """
+        总的匹配次数 hit
+        连续匹配次数 hit_streak
+        """
         self.hits = 0
         self.hit_streak = 0
         """
@@ -91,7 +95,7 @@ class KalmanBoxTracker(object):
         """
         self.age = 0
 
-    def update(self,bbox):
+    def update(self, bbox):
         """
         Updates the state vector with observed bbox.
         """
@@ -137,6 +141,13 @@ class KalmanBoxTracker(object):
         记录预测的x转化成bbox的结果，记录到history，作为后面的参考
         """
         self.history.append(convert_x_to_bbox(self.kf.x))
+        """
+        返回的是记录的最后一个bbox，实际上就是
+        刚刚预测出来添加进去history的那一个
+        其实history也只有两种可能，一种是没有update里面有不止一个array
+        一种是update之后之前的history会清空，此时里面只有刚才存入的array
+        还要注意的是array是二维的（1，4）
+        """
         return self.history[-1]
 
     def get_state(self):

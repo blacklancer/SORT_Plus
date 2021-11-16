@@ -38,36 +38,70 @@ if __name__ == '__main__':
     args = parse_args()
     display = args.display
     phase = args.phase
+
     total_time = 0.0
     total_frames = 0
-    colours = np.random.rand(32, 3)  # used only for display
+
+    # used only for display
+    colours = np.random.rand(32, 3)
+
+    """
+    带图片的模式
+    """
     if (display):
         if not os.path.exists('mot_benchmark'):
             print(
-                '\n\tERROR: mot_benchmark link not found!\n\n    Create a symbolic link to the MOT benchmark\n    (https://motchallenge.net/data/2D_MOT_2015/#download). E.g.:\n\n    $ ln -s /path/to/MOT2015_challenge/2DMOT2015 mot_benchmark\n\n')
+                '\n\tERROR: mot_benchmark link not found!\n\n    '
+                'Create a symbolic link to the MOT benchmark\n    '
+                '(https://motchallenge.net/data/2D_MOT_2015/#download). '
+                'E.g.:\n\n $ ln -s /path/to/MOT2015_challenge/2DMOT2015 mot_benchmark\n\n')
             exit()
         plt.ion()
         fig = plt.figure()
         ax1 = fig.add_subplot(111, aspect='equal')
 
+    """
+    省的预测输出的结果没地方存，先判断再用是个好习惯
+    """
     if not os.path.exists('output'):
         os.makedirs('output')
+
     pattern = os.path.join(args.seq_path, phase, '*', 'det', 'det.txt')
+    """
+    glob.glob()函数将会匹配给定路径下的所有pattern，并以列表形式返回
+    这里我测试的时候只留下了一个数据集所以
+    glob.glob(pattern) = ['data\\train\\KITTI-17\\det\\det.txt']
+    list里面只有一个数据
+    """
     for seq_dets_fn in glob.glob(pattern):
         # create instance of the SORT tracker
         mot_tracker = Sort(max_age=args.max_age,
                            min_hits=args.min_hits,
                            iou_threshold=args.iou_threshold)
+
         seq_dets = np.loadtxt(seq_dets_fn, delimiter=',')
         seq = seq_dets_fn[pattern.find('*'):].split(os.path.sep)[0]
 
         with open(os.path.join('output', '%s.txt' % (seq)), 'w') as out_file:
             print("Processing %s." % (seq))
+
+            """
+            每一个数据最开始都是帧数也就是int(seq_dets[:, 0].max())
+            预测和更新的单位都是帧
+            """
             for frame in range(int(seq_dets[:, 0].max())):
-                frame += 1  # detection and frame numbers begin at 1
-                dets = seq_dets[seq_dets[:, 0] == frame, 2:7]
-                dets[:, 2:4] += dets[:, 0:2]  # convert to [x1,y1,w,h] to [x1,y1,x2,y2]
+                # detection and frame numbers begin at 1
+                frame += 1
                 total_frames += 1
+                """
+                下面几行都是或取数据原始的数据处理之后才能使用
+                主要就是获取bbox
+                主要的操作还是numpy的切片操作
+                """
+                dets = seq_dets[seq_dets[:, 0] == frame, 2:7]
+                # convert to [x1,y1,w,h] to [x1,y1,x2,y2]
+                dets[:, 2:4] += dets[:, 0:2]
+
 
                 if (display):
                     fn = os.path.join('mot_benchmark', phase, seq, 'img1', '%06d.jpg' % (frame))
@@ -76,10 +110,17 @@ if __name__ == '__main__':
                     plt.title(seq + ' Tracked Targets')
 
                 start_time = time.time()
+                """
+                每帧都要根据检测的接过来获取更新之后的trackers
+                """
                 trackers = mot_tracker.update(dets)
+
                 cycle_time = time.time() - start_time
                 total_time += cycle_time
 
+                """
+                这里把根据检测更新之后的trackers结果存入到文件中
+                """
                 for d in trackers:
                     print('%d,%d,%.2f,%.2f,%.2f,%.2f,1,-1,-1,-1' % (frame, d[4], d[0], d[1], d[2] - d[0], d[3] - d[1]),
                           file=out_file)
